@@ -148,7 +148,7 @@ func Json(jsonStruct interface{}, ifacePtr ...interface{}) martini.Handler {
 func Validate(obj interface{}) martini.Handler {
 	return func(context martini.Context, req *http.Request) {
 		errors := NewErrors()
-		validateStruct(errors, obj)
+		validateStruct(errors, reflect.ValueOf(obj))
 
 		if validator, ok := obj.(Validator); ok {
 			validator.Validate(errors, req)
@@ -158,9 +158,8 @@ func Validate(obj interface{}) martini.Handler {
 	}
 }
 
-func validateStruct(errors *Errors, obj interface{}) {
-	typ := reflect.TypeOf(obj)
-	val := reflect.ValueOf(obj)
+func validateStruct(errors *Errors, val reflect.Value) {
+	typ := val.Type()
 
 	if typ.Kind() == reflect.Ptr {
 		typ = typ.Elem()
@@ -175,13 +174,13 @@ func validateStruct(errors *Errors, obj interface{}) {
 			continue
 		}
 
-		fieldValue := val.Field(i).Interface()
+		fieldVal := val.Field(i)
 		zero := reflect.Zero(field.Type).Interface()
 
 		if strings.Index(field.Tag.Get("binding"), "required") > -1 {
 			if field.Type.Kind() == reflect.Struct {
-				validateStruct(errors, fieldValue)
-			} else if reflect.DeepEqual(zero, fieldValue) {
+				validateStruct(errors, fieldVal)
+			} else if reflect.DeepEqual(zero, fieldVal.Interface()) {
 				name := field.Name
 				if j := field.Tag.Get("json"); j != "" {
 					name = j
